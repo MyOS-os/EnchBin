@@ -28,7 +28,7 @@
 #define SYS_acc_create 20
 #define SYS_acc_login  21
 #define SYS_whoami     22
-#define SYS_asmrun     23 /* динамический ассемблер: файлы .easm */
+#define SYS_asmrun     23 /* динамический ассемблер: rdi=0 => список .easm */
 #define SYS_drvctl     24 /* реестр драйверов .b_d */
 #define SYS_time       25 /* RTC */
 #define SYS_powerctl   26 /* 1=reboot, 2=halt */
@@ -62,6 +62,7 @@ struct ench_drv {
 #define ENCH_KCMD_REBOOT 1
 #define ENCH_KCMD_HALT   2
 #define ENCH_KCMD_UPTIME 3 /* arg = указатель на u64 (миллисекунды) */
+#define ENCH_KCMD_KILL   4 /* arg = pid задачи (task_kill) */
 
 // ---- Модуль ядра drive.mke (встраивается в секцию .enchmke) ----
 // reloc ELF, обязан экспортировать символ void ench_mke_init(void).

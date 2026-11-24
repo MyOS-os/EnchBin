@@ -1,6 +1,6 @@
 // kernel/src/drive/drive.c — менеджер драйверов: реестр .b_d-драйверов
 // (reloc ELF с экспортом "ench_drv_init", регистрируются через drv_register)
-// + встроенный сервис "kernel" (reboot/halt/uptime без .b_d).
+// + встроенный сервис "kernel" (reboot/halt/uptime/kill без .b_d).
 #include <ench/kernel.h>
 #include <ench/elf.h>
 #include <ench/osstrace.h>
@@ -20,6 +20,9 @@ static int kernel_ioctl(u32 cmd, u64 arg) {
         return ENCH_EOK;
     case ENCH_KCMD_UPTIME:
         if (arg) *(u64 *)arg = uptime_ms();
+        return ENCH_EOK;
+    case ENCH_KCMD_KILL:
+        task_kill((i32)arg);
         return ENCH_EOK;
     default:
         return ENCH_EINVAL;

@@ -7,6 +7,8 @@
 // она же собирается и в ядро (ENCH_KERNEL), и в libench.
 #pragma once
 
+#include <ench/base.h>
+
 #ifndef EnchBin_RingThree_Debug_FunctionDebug_OssTrace_Trace
 #define EnchBin_RingThree_Debug_FunctionDebug_OssTrace_Trace 0
 #endif
