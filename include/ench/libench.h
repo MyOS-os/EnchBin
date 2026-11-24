@@ -1,67 +1,59 @@
-#pragma once
-/* include/ench/libench.h — ring3 API (stdlib/c => libench.a).
- * Единственный способ ring3-приложений User/apps общаться с ядром. */
+/* include/ench/libench.h — ring3 API (stdlib/c -> libench.a).
+ * Единственный способ User/apps общаться с ядром; без libc, freestanding. */
+#ifndef ENCH_LIBENCH_H
+#define ENCH_LIBENCH_H
 #include <stdint.h>
 #include <stddef.h>
 #include <ench/abi.h>
+#include <ench/fs.h>
 
-/* syscall-транк */
-int64_t enc_syscall(int64_t n, int64_t a1, int64_t a2, int64_t a3,
-                    int64_t a4, int64_t a5, int64_t a6);
+/* консоль */
+long ench_print(const char *s);
+long ench_printf(const char *fmt, ...);
+void ench_clear(void);
+int  ench_readc(void); /* блокирует до клавиши; -1 при ошибке */
+
+/* файлы (fd) */
+int  ench_open(const char *path, int flags);
+int  ench_close(int fd);
+long ench_read(int fd, void *buf, size_t len);
+long ench_write(int fd, const void *buf, size_t len);
+long ench_seek(int fd, long off, int whence);
+long ench_stat(int fd, struct ench_fs_ent *out);
+long ench_list(const char *dirpath, struct ench_fs_ent *out, size_t max);
+long ench_mkdir(const char *dirpath, const char *name);
+long ench_create(const char *dirpath, const char *name);
+long ench_remove(const char *path);
 
 /* процессы */
-void    enc_exit(int64_t code) __attribute__((noreturn));
-int64_t enc_spawn(const char *path, char *const argv[]);
-int64_t enc_exec(const char *path, char *const argv[]);
-int64_t enc_wait(int64_t pid);
-int64_t enc_getpid(void);
-void    enc_yield(void);
-void    enc_sleep(uint64_t ms);
-int64_t enc_kill(int64_t pid);
-int     enc_ps(struct ench_ps *out);
+long ench_spawn(const char *path, const char *args);
+long ench_wait(long tid);
+void ench_exit(long code) __attribute__((noreturn));
+long ench_getpid(void);
+void ench_sleep(long ms);
+long ench_gettime(void);
+void ench_yield(void);
+const char *ench_argstr(void);
 
-/* планировщик: вес кода и real-time */
-int enc_set_weight(int64_t pid, int64_t weight);
-int enc_set_rt(int on);
+/* планировщик */
+long ench_setweight(long tid, long w);
+long ench_setrt(long tid, int on);
 
-/* консоль/вывод (J4) */
-void enc_print(const char *s);
-void enc_printf(const char *fmt, ...);
-void enc_clear(void);
-void enc_claim_console(void);
-void enc_release_console(void);
-int  enc_read_key(void);      /* блокирующе, -1 при отсутствии драйвера */
+/* модули/драйверы */
+long ench_drive(long cmd, long a, long b, void *buf, long len);
+long ench_drv(const char *name, long cmd, long a, long b, void *buf, long len);
 
-/* файлы */
-int  enc_open(const char *path, int flags);
-int  enc_close(int fd);
-int64_t enc_read(int fd, void *buf, uint64_t len);
-int64_t enc_write(int fd, const void *buf, uint64_t len);
-int  enc_unlink(const char *path);
-int  enc_fsinfo(const char *path, struct ench_fsinfo *out);
+/* GUI */
+long ench_gui_open(int x, int y, int w, int h, const char *title);
+long ench_gui_draw(long id, long cmd, long a, long b, long c, long d);
+long ench_gui_poll(long id);
 
-/* память */
-void *enc_mmap(uint64_t len, int exec);
-void *enc_brk(int64_t delta);
+/* аккаунты (через fs; хеш FNV-1a64+соль, как в ядре) */
+long ench_account_create(const char *login, const char *pass);
+long ench_account_verify(const char *login, const char *pass);
+long ench_account_count(void);
 
-/* аккаунты */
-int enc_acc_create(const char *login, const char *pass);
-int enc_acc_login(const char *login, const char *pass);
-void enc_acc_logout(void);
-int enc_acc_list(struct ench_acc_list *out);
-const char *enc_acc_current(void);
-
-/* драйверы */
-int enc_drv_list(struct ench_drv_list *out);
-int enc_drv_ioctl(const char *name, int64_t op, int64_t a, int64_t b, void *buf, uint64_t len, int64_t *ret);
-
-/* динамический ассемблер: SYS_runasm */
-int enc_runasm(const void *code, uint64_t len, int64_t *result);
-
-/* J4: финальная строка кода завершения (вызывается crt0 автоматически) */
-void enc_exit_code(int64_t code);
-
-/* строки (stdlib/c) */
+/* строки (внутренние, без libc) */
 size_t enc_strlen(const char *s);
 int    enc_strcmp(const char *a, const char *b);
 int    enc_strncmp(const char *a, const char *b, size_t n);
@@ -69,4 +61,7 @@ char  *enc_strcpy(char *d, const char *s);
 char  *enc_strcat(char *d, const char *s);
 void  *enc_memcpy(void *d, const void *s, size_t n);
 void  *enc_memset(void *d, int c, size_t n);
-int    enc_sprintf(char *buf, const char *fmt, ...);
+long   enc_snprintf(char *buf, size_t cap, const char *fmt, ...);
+long   enc_vsnprintf(char *buf, size_t cap, const char *fmt, void *va);
+
+#endif

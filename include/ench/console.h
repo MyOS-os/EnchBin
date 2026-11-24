@@ -1,38 +1,47 @@
-#pragma once
-/* include/ench/console.h — framebuffer-консоль ядра + J4-протокол.
- * Шрифт — компактный встроенный 5x7 (заменяем, см. drivers/ansi). */
+/* include/ench/console.h — консоль на framebuffer + J4-протокол.
+ * Реализация: kernel/src/console.c (шрифт 8x8, CSI-подмножество).
+ * Драйвер ansi.b_d расширяет разбор последовательностей через консольный хук. */
+#ifndef ENCH_CONSOLE_H
+#define ENCH_CONSOLE_H
 #include <stdint.h>
 #include <stddef.h>
 
-struct ench_fb {
-    void    *addr;   /* HHDM-адрес фреймбуфера */
-    uint32_t w, h, pitch, bpp;
-    uint32_t cw, ch; /* ширина/высота символа в пикселях */
-};
-extern struct ench_fb ench_fb;
+/*цвета CSI (базовая палитра)*/
+#define ENCH_C_BLACK 0x00000000u
+#define ENCH_C_RED    0x00AA3737u
+#define ENCH_C_GREEN  0x0037AA37u
+#define ENCH_C_YELLOW 0x00AAAA37u
+#define ENCH_C_BLUE   0x003737AAu
+#define ENCH_C_MAGENTA 0x00AA37AAu
+#define ENCH_C_CYAN   0x0037AAAAu
+#define ENCH_C_WHITE  0x00C8C8C8u
+#define ENCH_C_GRAY   0x006A6A6Au
 
-void console_init(void *fb_addr, uint32_t w, uint32_t h, uint32_t pitch, uint32_t bpp);
-void console_clear(void);
-void console_putc(char c);
-void console_write(const char *s, size_t n);
-void console_set_fg(uint32_t rgb);
-void console_set_bg(uint32_t rgb);
-void console_scroll(void);
-void console_cursor_home(void);
+void  console_init(void *fb_addr, uint32_t w, uint32_t h, uint32_t pitch, uint32_t bpp);
+void  console_clear(void);
+void  console_write(const char *s, size_t n);       /* с разбором CSI */
+void  console_write_raw(const char *s, size_t n);   /* без CSI (для шрифтовых вызовов GUI) */
+void  console_setcolor(uint32_t fg, uint32_t bg);
+void  console_getcolor(uint32_t *fg, uint32_t *bg);
+void  console_glyph(uint32_t x, uint32_t y, char c, uint32_t fg, uint32_t bg);
+void  console_fillrect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t rgb);
+void  console_pset(uint32_t x, uint32_t y, uint32_t rgb);
+uint32_t console_width(void);   /* в символах */
+uint32_t console_height(void);
+void  kprintf(const char *fmt, ...);
 
-/* строка с ANSI-подобными кодами \e[..m (обслуживает drivers/ansi) */
-void console_write_ansi(const char *s, size_t n);
+/* ввод */
+void  console_input_push(int c);   /* из драйвера клавиатуры */
+int   console_input_pop(void);     /* -1 если пусто */
 
-/* kprintf ядра: попадает в консоль ТОЛЬКО когда консоль не занята приложением
- * (J4) либо когда включён OssTrace */
-void kprintf(const char *fmt, ...);
+/* J4: владение консолью */
+void  console_claim(void);         /* текущая задача занимает консоль */
+void  console_release(void);
+int   console_owned(void);         /* 1 если вывод ядра сейчас подавлен */
+void  console_exitline(long code); /* единственная финальная строка кода */
 
-/* J4: приложение занимает консоль; сообщения ядра подавляются */
-void console_claim(int64_t pid);
-void console_release(void);
-int  console_claimed(void);
-/* финальная строка: "exit code: N\n" — всегда видна */
-void console_exit_line(int64_t code);
+/* расширенный CSI-хук (ставит драйвер ansi.b_d) */
+typedef void (*console_ansi_hook_fn)(const char *seq, size_t len);
+void  console_set_ansi_hook(console_ansi_hook_fn fn);
 
-/* отрисовка символа шрифтом в произвольную позицию (для GUI Platform/MyOS) */
-void console_glyph(uint32_t x, uint32_t y, char c, uint32_t fg, uint32_t bg, uint32_t scale);
+#endif

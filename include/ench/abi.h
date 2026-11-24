@@ -1,155 +1,156 @@
-#pragma once
-/* include/ench/abi.h — единый ABI EnchBin OS (ядро, .mke-модули, .b_d-драйверы,
- * приложения ring0 Platform/Apps и ring3 User/apps).
- * Единственный источник истины: номера syscalls 0..26, коды ошибок, флаги и
- * структуры, передаваемые через границу колец. */
+/* include/ench/abi.h — единый ABI EnchBin OS (ядро, .mke, .b_d, ring3).
+ * Полнот rewrite: здесь одни syscall-номера (0..26) для ядра (syscall.c),
+ * libench (stdlib/c) и Rust/D/asm-stdlib. Ничего лишнего, demo-прототипов нет. */
+#ifndef ENCH_ABI_H
+#define ENCH_ABI_H
 #include <stdint.h>
 #include <stddef.h>
 
-#define ENCH_ABI_VERSION   0x00010000u /* v0.1.0 First Light */
-#define ENCH_ABI_NAME      "EnchBin"
+#define ENCH_ABI_VERSION 0x00010000u /* v0.1.0 First Light */
 
-/* ---------- syscalls 0..26 ---------- */
-#define SYS_read            0
-#define SYS_write           1
-#define SYS_open            2
-#define SYS_close           3
-#define SYS_lseek           4
-#define SYS_unlink          5
-#define SYS_getpid          6
-#define SYS_yield           7
-#define SYS_spawn           8
-#define SYS_exec            9
-#define SYS_exit           10
-#define SYS_waitpid        11
-#define SYS_sleep          12
-#define SYS_brk            13
-#define SYS_mmap           14
-#define SYS_getkey         15
-#define SYS_console_claim  16
-#define SYS_console_release 17
-#define SYS_console_exitcode 18
-#define SYS_ps             19
-#define SYS_kill           20
-#define SYS_acc            21
-#define SYS_setweight      22
-#define SYS_setrt          23
-#define SYS_runasm         24
-#define SYS_drvctl         25
-#define SYS_fsinfo         26
+/* ---------- syscalls 0..26 (единый список) ---------- */
+#define SYS_argstr          0 /* -> u64 ptr на строку аргументов (NULL) */
+#define SYS_console_write   1 /* a=buf b=len -> записать в консоль */
+#define SYS_console_readc   2 /* -> код клавиши или -1 */
+#define SYS_open            3 /* a=path b=flags(0 ro/1 rw/2 rw|create) -> fd */
+#define SYS_close           4
+#define SYS_read            5
+#define SYS_write           6
+#define SYS_seek            7
+#define SYS_stat            8 /* a=fd buf=ench_fs_ent */
+#define SYS_list            9 /* a=dirpath buf=ench_fs_ent[] b=cap -> count */
+#define SYS_mkdir          10 /* a=dirpath b=name */
+#define SYS_create         11
+#define SYS_remove         12
+#define SYS_spawn          13 /* a=path b=args(или 0) -> tid */
+#define SYS_wait           14 /* a=tid -> exit code */
+#define SYS_exit           15
+#define SYS_sleep          16 /* a=ms */
+#define SYS_gettime        17 /* -> ms с загрузки */
+#define SYS_getpid         18
+#define SYS_yield          19
+#define SYS_setweight      20 /* a=tid b=weight */
+#define SYS_setrt          21 /* a=tid b=0/1 */
+#define SYS_drive_call     22 /* a=cmd b/c/Buf: модуль drive (drive.mke) */
+#define SYS_drv_call       23 /* a=name b=cmd c/d/Buf: сервис драйвера */
+#define SYS_gui_open       24 /* x,y,w,h,title -> win id */
+#define SYS_gui_draw       25 /* id,cmd,a,b,c,d */
+#define SYS_gui_poll       26 /* id -> клавиша/клик или -1 */
 #define SYS_COUNT          27
 
-/* коды ошибок (совместимы с духом POSIX, минимум для err-протокола shell) */
-#define EOK     0
-#define EPERM   1
-#define ENOENT  2
-#define EINVAL  3
-#define ENOMEM  4
-#define EACCES  5
-#define EEXIST  6
-#define ENOSYS  7
-#define EIO     8
-#define EBADF   9
-#define ENOTDIR 10
-#define EISDIR  11
-#define ERR     99 /* универсальный 'err' для shell */
+/* коды ошибок (negative errno; shell печатает err при ret<0) */
+#define ENCH_EOK     0
+#define ENCH_EPERM  (-1)
+#define ENCH_ENOENT (-2)
+#define ENCH_ENOMEM (-12)
+#define ENCH_EACCES (-13)
+#define ENCH_EEXIST (-17)
+#define ENCH_ENOTDIR (-20)
+#define ENCH_EISDIR (-21)
+#define ENCH_EINVAL (-22)
+#define ENCH_ENOSYS (-38)
 
-/* флаги узлов ФС (SYS_fsinfo / ls --a / cat-протокол) */
-#define F_DIR    1u /* каталог */
-#define F_HIDDEN 2u /* '__'-суффикс (lock): не виден без ls --a */
-#define F_SECURE 4u /* аккаунт-материал: cat -> err */
+/* флаги записей ФС */
+#define ENCH_F_DIR   1u
+#define ENCH_F_HIDDEN 2u /* имя с '.' — не видно без ls --a */
+#define ENCH_F_LOCK  4u  /* имя с '__' — lock: чтение->err, запись/удаление запрещены */
 
-/* open-флаги */
-#define O_RDONLY 0
-#define O_WRONLY 1
-#define O_RDWR   2
-#define O_CREATE 4
-#define O_APPEND 8
-#define O_TRUNC  16
+/* J4: протокол консоли. Пока выполняется приложение, консоль принадлежит ему;
+ * вывод ядра подавлен; когда приложение завершается, ядро выводит ОДНУ строку
+ * — код завершения — всегда с новой строки. */
 
-/* ACC-операции SYS_acc */
-#define ACC_CREATE 1 /* (login, pass) */
-#define ACC_LOGIN  2
-#define ACC_LOGOUT 3
-#define ACC_LIST   4
-#define ACC_CURRENT 5
-
-/* SYS_setrt */
-#define RT_OFF 0
-#define RT_ON  1
-
-/* SYS_console_exitcode — J4: код завершения выводится одной строкой с новой строки */
-
-/* ---------- структуры ABI ---------- */
-
-struct ench_ps_ent {
-    int64_t  pid, ppid;
-    uint32_t state;      /* 0 unused,1 ready,2 running,3 blocked,4 zombie */
-    uint32_t rt;         /* real-time поток */
-    int64_t  weight;     /* вес кода (SYS_setweight) */
-    char     name[16];
-    int64_t  code_size;  /* размер ELF — вес при запуске */
-};
-struct ench_ps {
-    int64_t count;
-    struct ench_ps_ent e[32];
-};
-
-struct ench_fsinfo {
-    uint32_t flags;      /* F_DIR / F_HIDDEN / F_SECURE */
-    uint32_t pad;
-    int64_t  size;
+/* ---------- структуры через границу колец ---------- */
+struct ench_fs_ent {
     char     name[64];
+    uint32_t kind;   /* ENCH_F_DIR или 0 */
+    uint32_t flags;  /* ENCH_F_* */
+    uint64_t size;
 };
 
-struct ench_acc_ent { char login[32]; };
-struct ench_acc_list {
-    int64_t count;
-    int64_t logged_in;   /* индекс текущего или -1 */
-    struct ench_acc_ent e[32];
-};
-
-struct ench_drv_ent {
-    char     name[24];
-    uint32_t kind;       /* DRV_KEYBOARD / DRV_TTY_ANSI / DRV_FS_COMPAT / DRV_MISC */
+struct ench_unitinfo {
+    char     name[32];
+    uint32_t kind;   /* ENCH_MKE_* / ENCH_DRV_* / ENCH_APP_* */
     uint32_t pad;
-};
-struct ench_drv_list {
-    int64_t count;
-    struct ench_drv_ent e[32];
+    uint64_t size;
+    uint64_t base;
 };
 
-struct ench_drvctl {
-    int64_t op;          /* DRVCTL_* */
-    char    name[24];    /* имя драйвера или пусто */
-    int64_t a, b;
-    void*   buf;
-    uint64_t len;
-    int64_t ret;         /* сюда пишется результат */
+/* ---------- модуль .mke (единственный — drive.mke, секция .enchmke) ---------- */
+#define ENCH_MKE_MAGIC 0x00454B4Du /* "MKE\0" */
+#define ENCH_MKE_ABI   1
+struct ench_mdesc {
+    uint32_t magic;       /* ENCH_MKE_MAGIC */
+    uint32_t abi;         /* ENCH_MKE_ABI */
+    const char *name;
+    int  (*init)(void);
+    int  (*fini)(void);
+    int  (*call)(uint32_t cmd, int64_t a, int64_t b, void *buf, uint64_t len);
+};
+/* команды call модуля drive */
+#define DRIVE_LOAD   1 /* a=path(inside kernel), b=len -> 0/err */
+#define DRIVE_LIST   2 /* buf=ench_unitinfo[], b=cap -> count */
+#define DRIVE_UNLOAD 3 /* a=индекс единицы */
+
+/* ---------- драйвер/приложение ring0 (.b_d, reloc ELF, символ ench_b_d) ---------- */
+#define ENCH_BD_MAGIC 0x00444245u /* "EBD\0" */
+#define ENCH_BD_ABI   1
+#define ENCH_DRV_CHAR  1
+#define ENCH_DRV_UNIX  2
+#define ENCH_DRV_USERD 3
+#define ENCH_APP_RING0 4
+struct ench_bdesc {
+    uint32_t magic;       /* ENCH_BD_MAGIC */
+    uint32_t kind;        /* ENCH_DRV_* / ENCH_APP_RING0 */
+    const char *name;
+    const char *abi;
+    int  (*init)(void);   /* драйвер: регистрация; ring0-приложение: main */
+    int  (*fini)(void);
+    int  (*call)(uint32_t cmd, int64_t a, int64_t b, void *buf, uint64_t len);
+    int64_t weight_hint;  /* 0 = авто: вес кода = размер образа (страницы 4K) */
 };
 
-#define DRVCTL_LIST     1 /* заполнить ench_drv_list */
-#define DRVCTL_IOCTL    2 /* вызвать ioctl драйвера name */
-#define DRVCTL_LOAD     3 /* load .b_d по path в a (char*) */
-
-/* SYS_runasm: динамический исполнитель ассемблера */
-struct ench_runasm {
-    const void* code;    /* машинный код, собранный runasm'ом */
-    uint64_t    len;
-    int64_t     result;  /* возвращённое значение */
-    int64_t     err;     /* EOK/EACCES/EINVAL */
+/* ---------- ELF64 (минимум для загрузчиков) ---------- */
+struct ench_ehdr {
+    uint8_t  e_ident[16];
+    uint16_t e_type, e_machine;
+    uint32_t e_version;
+    uint64_t e_entry, e_phoff, e_shoff;
+    uint32_t e_flags;
+    uint16_t e_ehsize, e_phentsize, e_phnum;
+    uint16_t e_shentsize, e_shnum, e_shstrndx;
 };
+struct ench_phdr {
+    uint32_t p_type, p_flags;
+    uint64_t p_offset, p_vaddr, p_paddr, p_filesz, p_memsz, p_align;
+};
+struct ench_shdr {
+    uint32_t sh_name, sh_type;
+    uint64_t sh_flags, sh_addr, sh_offset, sh_size;
+    uint32_t sh_link, sh_info;
+    uint64_t sh_addralign, sh_entsize;
+};
+struct ench_sym {
+    uint32_t st_name;
+    uint8_t  st_info, st_other;
+    uint16_t st_shndx;
+    uint64_t st_value, st_size;
+};
+struct ench_rela {
+    uint64_t r_offset;
+    uint32_t r_type, r_sym;
+    int64_t  r_addend;
+};
+#define ENCH_ET_EXEC 2
+#define ENCH_ET_REL  1
+#define ENCH_EM_X64  62
+#define ENCH_PT_LOAD 1
+#define ENCH_SHT_SYMTAB 2
+#define ENCH_SHT_RELA   4
+#define ENCH_R_64       1
+#define ENCH_R_PC32     2
+#define ENCH_R_PLT32    4
+#define ENCH_R_GOTPCREL 9
+#define ENCH_R_32S      11
+#define ENCH_R_REX_GOTPCRELX 42
 
-/* ---------- J4: протокол консоли ----------
- * 1) программа делает SYS_console_claim — вывод программы занимает консоль;
- * 2) печатает через SYS_write(1,...);
- * 3) самым последним действием вызывает SYS_console_exitcode(code) —
- *    код завершения выводится ЕДИНСТВЕННОЙ строкой с новой строки. */
-
-/* ---------- соглашение имен ----------
- * Platform/Apps      — ring0-приложения (директный API ядра)
- * Platform/MyOS      — GUI-замашки (gui/gfx), тоже ring0
- * User/apps          — ring3-приложения (только через libench)
- * __-суффикс файла   — lock: скрыт без ls --a, cat -> err
- * .-файлы            — скрыты без ls --a
- */
+#endif

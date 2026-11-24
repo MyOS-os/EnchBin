@@ -1,31 +1,20 @@
-#pragma once
-/* include/ench/drive.h — drive-подсистема: реестр .mke-модулей и .b_d-драйверов.
- * drive.mke встроен в ядро секцией .enchmke (builder: embed) и активируется
- * при старте. init.d_/drivers.einit грузит .b_d в драйверную арену памяти
- * (drv_arena), инъекция списка — через initd. */
+/* include/ench/drive.h — ABI модуля .mke и .b_d (единственная реализация
+ * загрузчика: kernel/src/drive.c). Инициализация цепочки:
+ *   init.d_/autostart.einit:  module drive  ->  драйверы .b_d  ->  приложения. */
+#ifndef ENCH_DRIVE_H
+#define ENCH_DRIVE_H
 #include <stdint.h>
 #include <stddef.h>
-#include <stdbool.h>
+#include <ench/abi.h>
 
-#define ENCH_MKE_MAX 16
-#define ENCH_BD_MAX  32
+/* загрузка reloc-ELF (внутренние примитивы ядра; .mke использует их через ksyms) */
+struct ench_bdesc;
+struct ench_mdesc;
+long ench_kload_reloc(const void *blob, size_t size, const char *want_sym,
+                      void **desc_out, char *name_out, size_t name_cap);
+void ench_kunit_removed_last(void);
 
-struct drive_unit {
-    char     name[24];
-    void    *init_fn;       /* int init(void) */
-    void    *desc;          /* struct drv_desc* для .b_d */
-    int      loaded;
-    size_t   size;
-    bool     embedded;      /* .mke из секции .enchmke */
-};
+/* команды SYS_drive_call (= call модуля drive) */
+/* DRIVE_LOAD/DRIVE_LIST/DRIVE_UNLOAD — см. abi.h */
 
-void drive_init(void);                    /* скан .enchmke + загрузка drive.mke */
-int  drive_load_embedded(void);           /* activate drive.mke из секции ядра */
-int  drive_load_b_d(const char *abs_path);/* .b_d из ramfs -> арена -> init */
-struct drive_unit *drive_find(const char *name);
-int  drive_list(struct ench_drv_list *out);
-int  drive_ioctl(const char *name, uint64_t op, int64_t a, int64_t b, void *buf, uint64_t len, int64_t *ret);
-int  drive_unload_last(void);
-
-/* диспетчер SYS_drvctl */
-int64_t drive_syscall(struct ench_drvctl *dc);
+#endif
