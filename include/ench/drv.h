@@ -1,35 +1,23 @@
-/* include/ench/drv.h — реестр сервисов драйверов (kernel/src/drv.c).
- * Драйверы (.b_d, включая userspace/driversuser/msdos) регистрируют call-сервисы;
- * shell/приложения дергают их через SYS_drv_call (ring3) или drv_call (ring0). */
+/* include/ench/drv.h — реестр драйверов .b_d (документация).
+ * Реализация: kernel/src/drive/drive.c; struct ench_drv, ENCH_DRVCTL_* и
+ * ENCH_KCMD_* — в ench/abi.h; объявления drv_* — в ench/kernel.h.
+ *
+ * Конвенция .b_d (reloc ELF, ld -r): обязан экспортировать
+ *   int ench_drv_init(void);
+ * внутри — cpu_set_kbd_hook/kprintf/console_app_write/drv_register/fs_* и
+ * прочее ядро через таблицу ksyms; init обязан вызвать drv_register().
+ *
+ * Встроенный сервис "kernel" (без .b_d): cmd ENCH_KCMD_REBOOT/HALT/UPTIME.
+ *
+ * ABI ioctl-команд драйверов (ring3 вызывает через SYS_drvctl CALL):
+ *   keyboard: cmd 1 — сброс shift/caps
+ *   ansi:     cmd 1 — очистка экрана; cmd 2 — setattr (arg = fg | bg<<8)
+ *   unix_lin: cmd 1 — LINE_READ, arg = &struct ench_line_req {
+ *                char *buf; usize cap; } (блокирующе до '\n', echo+backspace),
+ *             возвращает длину или err; cmd 2 — echo вкл/выкл (arg=0/1)
+ *   msdos:    cmd 1 — DIR83, arg = &struct ench_dir83_req {
+ *                const char *path; char *out; usize cap; } (листинг 8.3) */
 #ifndef ENCH_DRV_H
 #define ENCH_DRV_H
-#include <stdint.h>
-#include <stddef.h>
-
-struct ench_dvrops {
-    int (*call)(uint32_t cmd, int64_t a, int64_t b, void *buf, uint64_t len);
-};
-
-#define ENCH_DRV_MAX 16
-
-long drv_register(const char *name, const struct ench_dvrops *ops);
-long drv_unregister(const char *name);
-long drv_call(const char *name, uint32_t cmd, int64_t a, int64_t b, void *buf, uint64_t len);
-long drv_list(char *buf, size_t cap); /* "name1\nname2\n" -> длина */
-
-/* встроенный сервис "kernel" (без .b_d) */
-#define KERNEL_REBOOT  1
-#define KERNEL_HALT    2
-#define KERNEL_UPTIME  3 /* a -> ms */
-#define KERNEL_TASKS   4 /* buf=ench_taskinfo[] b=cap -> count */
-#define KERNEL_KILL    5 /* a=tid */
-struct ench_taskinfo {
-    long     tid;
-    long     ring;
-    long     weight;
-    long     rt;
-    long     state;
-    char     name[24];
-};
-
+#include <ench/abi.h>
 #endif

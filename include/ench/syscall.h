@@ -1,16 +1,12 @@
-#pragma once
-/* include/ench/syscall.h — диспетчер syscalls 0..26 (см. abi.h).
- * Вход через syscall/sysret (MSR LSTAR/STAR/SFMASK), единый C-диспетчер. */
-#include <stdint.h>
-
-struct syscall_frame {
-    uint64_t rdi, rsi, rdx, r10, r8, r9;
-    int64_t  n;      /* rax */
-};
-
-void syscall_init(void);
-int64_t syscall_dispatch(struct syscall_frame *f);
-
-/* syscall-обёртка ядра (для oss_trace/filelog и тестов) */
-int64_t ench_syscall(int64_t n, int64_t a1, int64_t a2, int64_t a3,
-                     int64_t a4, int64_t a5, int64_t a6);
+/* include/ench/syscall.h — диспетчер syscalls 0..26 (документация).
+ * Реализация: kernel/src/syscall/syscall.c + вход syscall_entry в
+ * kernel/src/cpu/cpu.c (SYSCALL/SYSRET: LSTAR/STAR/FMASK, MSR).
+ * Контракт: номер в rax, SysV-аргументы rdi,rsi,rdx,r10,r8,r9; ошибка =>
+ * отрицательный errno (ENCH_E*); кадр struct cpu_frame (ench/kcpu.h),
+ * sys_dispatch возвращает кадр для iretq (exit/yield/sleep/wait могут
+ * переключить задачу). Таблица вызовов — SYS_* в ench/abi.h,
+ * ring3-обёртки — ench/user.h (ench_sys0..6, syscall-инструкция). */
+#ifndef ENCH_SYSCALL_H
+#define ENCH_SYSCALL_H
+#include <ench/abi.h>
+#endif

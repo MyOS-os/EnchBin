@@ -1,20 +1,15 @@
-/* include/ench/drive.h — ABI модуля .mke и .b_d (единственная реализация
- * загрузчика: kernel/src/drive.c). Инициализация цепочки:
- *   init.d_/autostart.einit:  module drive  ->  драйверы .b_d  ->  приложения. */
+/* include/ench/drive.h — ABI модуля .mke (документация).
+ * Реализация загрузчика: kernel/src/drive/mke.c; низкоуровневая загрузка
+ * reloc-ELF — kernel/src/elf/elfload.c (elf_rel_load, объявления в kernel.h).
+ *
+ * Модуль drive.mke: reloc ELF, собирается ld -r из
+ * kernel/modules/drive/src/drive_mod.c, встраивается в ядро через секцию
+ * .enchmke (builder: objcopy --rename-section .data=.enchmke; границы —
+ * символы ench_mke_blob_start/end в scripts/link/kernel.ld). При загрузке
+ * ядра mke_init() резолвит ENCH_MKE_SYMBOL ("ench_mke_init") и вызывает его.
+ * Роль drive.mke — активация подсистемы драйверов; загрузка .b_d — через
+ * init.d_ (load) или SYS_drvctl LOAD. */
 #ifndef ENCH_DRIVE_H
 #define ENCH_DRIVE_H
-#include <stdint.h>
-#include <stddef.h>
 #include <ench/abi.h>
-
-/* загрузка reloc-ELF (внутренние примитивы ядра; .mke использует их через ksyms) */
-struct ench_bdesc;
-struct ench_mdesc;
-long ench_kload_reloc(const void *blob, size_t size, const char *want_sym,
-                      void **desc_out, char *name_out, size_t name_cap);
-void ench_kunit_removed_last(void);
-
-/* команды SYS_drive_call (= call модуля drive) */
-/* DRIVE_LOAD/DRIVE_LIST/DRIVE_UNLOAD — см. abi.h */
-
 #endif

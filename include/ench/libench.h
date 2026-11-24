@@ -1,67 +1,51 @@
-/* include/ench/libench.h — ring3 API (stdlib/c -> libench.a).
- * Единственный способ User/apps общаться с ядром; без libc, freestanding. */
+// include/ench/libench.h — ring3 API EnchBin: umbrella + расширенный stdlib.
+// Ядро вызовов — ench/user.h (syscalls 0..26 через syscall-инструкцию);
+// здесь — удобства libench (stdlib/c, собирается в build/libench.a):
+// строки, числа, strbuf, argparse, пути и sbrk-аллокатор.
 #ifndef ENCH_LIBENCH_H
 #define ENCH_LIBENCH_H
-#include <stdint.h>
-#include <stddef.h>
+
+#include <ench/base.h>
 #include <ench/abi.h>
-#include <ench/fs.h>
+#include <ench/osstrace.h>
+#include <ench/user.h>
 
-/* консоль */
-long ench_print(const char *s);
-long ench_printf(const char *fmt, ...);
-void ench_clear(void);
-int  ench_readc(void); /* блокирует до клавиши; -1 при ошибке */
+// ---- строки/память (freestanding, без libc) ----
+usize enc_strlen(const char *s);
+int   enc_strcmp(const char *a, const char *b);
+int   enc_strncmp(const char *a, const char *b, usize n);
+char *enc_strcpy(char *d, const char *s);
+char *enc_strcat(char *d, const char *s);
+char *enc_strchr(const char *s, char c);
+void *enc_memcpy(void *d, const void *s, usize n);
+void *enc_memset(void *d, int c, usize n);
+int   enc_snprintf(char *buf, usize cap, const char *fmt, ...);
+int   enc_vsnprintf(char *buf, usize cap, const char *fmt, va_list ap);
 
-/* файлы (fd) */
-int  ench_open(const char *path, int flags);
-int  ench_close(int fd);
-long ench_read(int fd, void *buf, size_t len);
-long ench_write(int fd, const void *buf, size_t len);
-long ench_seek(int fd, long off, int whence);
-long ench_stat(int fd, struct ench_fs_ent *out);
-long ench_list(const char *dirpath, struct ench_fs_ent *out, size_t max);
-long ench_mkdir(const char *dirpath, const char *name);
-long ench_create(const char *dirpath, const char *name);
-long ench_remove(const char *path);
+// ---- числа ----
+int    enc_atoi(const char *s);            // десятичное, с знаком
+usize  enc_utoa(u64 v, char *out, int base); // base 2..16, возвращает длину
 
-/* процессы */
-long ench_spawn(const char *path, const char *args);
-long ench_wait(long tid);
-void ench_exit(long code) __attribute__((noreturn));
-long ench_getpid(void);
-void ench_sleep(long ms);
-long ench_gettime(void);
-void ench_yield(void);
-const char *ench_argstr(void);
+// ---- strbuf: растущий буфер на enc_alloc ----
+struct enc_strbuf { char *s; usize len, cap; };
+int   enc_sb_init(struct enc_strbuf *sb, usize cap);
+void  enc_sb_free(struct enc_strbuf *sb);
+int   enc_sb_putc(struct enc_strbuf *sb, char c);
+int   enc_sb_puts(struct enc_strbuf *sb, const char *s);
+int   enc_sb_printf(struct enc_strbuf *sb, const char *fmt, ...);
+char *enc_sb_take(struct enc_strbuf *sb);   // отдать буфер (не free)
 
-/* планировщик */
-long ench_setweight(long tid, long w);
-long ench_setrt(long tid, int on);
+// ---- argparse: строка -> argv (по пробелам/табам, кавычки "...") ----
+// модифицирует строку; возвращает число аргументов (>=0), argv дополняется 0
+int enc_argparse(char *line, char **argv, int max);
 
-/* модули/драйверы */
-long ench_drive(long cmd, long a, long b, void *buf, long len);
-long ench_drv(const char *name, long cmd, long a, long b, void *buf, long len);
+// ---- пути ----
+int enc_path_join(char *out, usize cap, const char *dir, const char *name);
+int enc_path_basename(const char *path, char *out, usize cap);
+int enc_path_dirname(const char *path, char *out, usize cap);
 
-/* GUI */
-long ench_gui_open(int x, int y, int w, int h, const char *title);
-long ench_gui_draw(long id, long cmd, long a, long b, long c, long d);
-long ench_gui_poll(long id);
-
-/* аккаунты (через fs; хеш FNV-1a64+соль, как в ядре) */
-long ench_account_create(const char *login, const char *pass);
-long ench_account_verify(const char *login, const char *pass);
-long ench_account_count(void);
-
-/* строки (внутренние, без libc) */
-size_t enc_strlen(const char *s);
-int    enc_strcmp(const char *a, const char *b);
-int    enc_strncmp(const char *a, const char *b, size_t n);
-char  *enc_strcpy(char *d, const char *s);
-char  *enc_strcat(char *d, const char *s);
-void  *enc_memcpy(void *d, const void *s, size_t n);
-void  *enc_memset(void *d, int c, size_t n);
-long   enc_snprintf(char *buf, size_t cap, const char *fmt, ...);
-long   enc_vsnprintf(char *buf, size_t cap, const char *fmt, void *va);
+// ---- аллокатор поверх ench_sbrk (bump, без поэлементного free) ----
+void *enc_alloc(usize n);
+void  enc_free_all(void);                    // сброс бампа (осторожно: указатели протухают)
 
 #endif
