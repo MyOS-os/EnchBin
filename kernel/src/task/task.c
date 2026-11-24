@@ -329,3 +329,29 @@ void task_enter_idle(void) { for (;;) __asm__ volatile("sti; hlt"); }
 u64 task_getcur_brk(void) { return cur ? cur->brk : USER_BRK_BASE; }
 void task_getcur_brk_set(u64 nb) { if (cur) cur->brk = nb; }
 void *task_cur_ptr(void) { return cur; }
+
+// ---- хелперы sys_dispatch: wait/block/run/pid ----
+i32 task_current_pid(void) { return cur ? cur->pid : 0; }
+void task_set_block(void) { if (cur) cur->state = ENCH_TASK_BLOCK; }
+void task_set_run(void) { if (cur && cur->state == ENCH_TASK_BLOCK) cur->state = ENCH_TASK_RUN; }
+
+// 1 = ребёнок DEAD (код в *code_out), 0 = ещё работает, <0 = errno.
+// pid < 0 => любой zombie-ребёнок (возвращает его pid).
+i32 task_wait_check(i32 pid, i32 *code_out) {
+    if (!cur) return ENCH_EINVAL;
+    if (pid < 0) {
+        for (int i = 0; i < MAX_TASKS; i++)
+            if (tasks[i].kstack && tasks[i].zombie && tasks[i].parent == cur->pid) {
+                if (code_out) *code_out = tasks[i].exit_code;
+                return tasks[i].pid;
+            }
+        return 0;
+    }
+    struct task *t = by_pid(pid);
+    if (!t || t->parent != cur->pid) return ENCH_EINVAL;
+    if (t->state == ENCH_TASK_DEAD) {
+        if (code_out) *code_out = t->exit_code;
+        return pid;
+    }
+    return 0;
+}
