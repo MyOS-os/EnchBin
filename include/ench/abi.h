@@ -74,6 +74,7 @@ struct ench_drv {
 #define ENCH_DRIVERS_USR "/Platform/ench.bin/system/drivers/userd"
 #define ENCH_DRIVE_UNIX  "/Platform/ench.bin/system/drive"
 #define ENCH_LOCK_SUFFIX ".__"   /* суффикс lock-файлов: скрыты без ls --a */
+#define ENCH_PASSFILE   ".pass.__" /* имя файла пароля в каталоге аккаунта */
 
 // ---- RTC ----
 struct ench_rtc { u32 year, mon, day, hour, min, sec; };
