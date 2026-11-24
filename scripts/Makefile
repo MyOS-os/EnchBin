@@ -7,7 +7,9 @@ AR ?= ar
 
 CFLAGS_K = -std=c11 -ffreestanding -fno-stack-protector -fno-pic -mno-red-zone -mcmodel=kernel -O2 -Wall -Wextra -Iinclude
 CFLAGS_U = -std=c11 -ffreestanding -fno-stack-protector -fno-pic -mno-red-zone -mcmodel=small -O2 -Wall -Wextra -Iinclude
-CFLAGS_P = -std=c11 -ffreestanding -fPIC -fno-stack-protector -mno-red-zone -mcmodel=small -O2 -Wall -Wextra -Iinclude
+# ring0-единицы (.mke/.b_d/приложения Apps и MyOS): ET_REL, релокации против
+# ksyms ядра; fno-pic (без GOT), mcmodel=kernel (рядом с ядром, PC32 валиден).
+CFLAGS_P = -std=c11 -ffreestanding -fno-stack-protector -fno-pic -mno-red-zone -mcmodel=kernel -O2 -Wall -Wextra -Iinclude
 
 .PHONY: obj_k obj_u obj_p link_kernel link_reloc link_app ar embed
 

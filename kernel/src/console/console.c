@@ -1,6 +1,7 @@
 // kernel/src/console/console.c — текстовая консоль на framebuffer (шрифт 3x5)
 // и протокол J4: монопольный вывод приложения + последняя строка "exit N".
 #include <ench/kernel.h>
+#include <ench/myos.h>
 #include <ench/osstrace.h>
 
 extern const u8 ench_font3x5[96][5]; // kernel/src/console/font.c
@@ -23,7 +24,7 @@ static u16 colors[16] = {
 // ЦВЕТ пикселя: fg -> белый оттенок по атрибуту, bg -> тёмный (toy-палитра)
 static u32 fg_color(u8 a) {
     u16 c = colors[a & 15];
-    return myos_rgb((c >> 8) & 0xC0 | 0x20, (c >> 4) & 0xC0 | 0x20, (c & 0xC0) | 0x20);
+    return myos_rgb((u8)(((c >> 8) & 0xC0) | 0x20), (u8)(((c >> 4) & 0xC0) | 0x20), (u8)((c & 0xC0) | 0x20));
 }
 static u32 bg_color(u8 a) {
     u16 c = colors[a & 15];
@@ -42,13 +43,6 @@ void kconsole_init(void) {
 }
 
 void ksetattr(u8 fg, u8 bg) { cfg = fg; cbg = bg; }
-
-static void cell_clear(int x, int y) {
-    u32 c = bg_color(cbg);
-    for (int py = 0; py < CELL_H; py++)
-        for (int px = 0; px < CELL_W; px++)
-            fb[(y * CELL_H + py) * P + x * CELL_W + px] = c;
-}
 
 static void cell_draw(int x, int y, char ch) {
     u8 rows[5];
@@ -121,11 +115,39 @@ void kprintf(const char *fmt, ...) {
 }
 
 // J4-строка выхода: последняя строка, отдельно на новой строке.
+// (без kvformat: va_list нельзя собрать вручную — форматируем "exit N" сами)
+static void i32_to_str(i32 v, char *b) {
+    char t[12]; usize n = 0;
+    u64 u = v < 0 ? (u64)(-(i64)v) : (u64)v;
+    if (!u) t[n++] = '0';
+    while (u) { t[n++] = (char)('0' + u % 10); u /= 10; }
+    usize k = 0;
+    if (v < 0) b[k++] = '-';
+    while (n) b[k++] = t[--n];
+    b[k] = 0;
+}
+
 void console_exit_line(i32 code) {
-    char b[32];
-    int n = kvformat(b, sizeof b, "\n" ENCH_EXIT_LINE_FMT "\n", (va_list){&code});
-    (void)n;
-    raw_write(b, ench_strlen(b));
+    char b[24]; usize n = 0;
+    b[n++] = '\n';
+    const char *p = ENCH_EXIT_LINE_FMT;    // "exit %d"
+    while (*p && n + 1 < sizeof b) {
+        if (p[0] == '%' && p[1] == 'd') {
+            char num[12]; i32_to_str(code, num);
+            for (usize i = 0; num[i] && n + 1 < sizeof b; i++) b[n++] = num[i];
+            p += 2;
+        } else {
+            b[n++] = *p++;
+        }
+    }
+    b[n++] = '\n';
+    raw_write(b, n);
+}
+
+// Вывод приложения (SYS_write/asmexec) поверх J4: всегда на экран.
+void console_app_write(const char *s, usize n) {
+    kserial_write(s, n);
+    raw_write(s, n);
 }
 
 void console_acquire(void *task) { owner = task; }

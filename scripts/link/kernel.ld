@@ -11,7 +11,11 @@ SECTIONS {
   }
 
   .text : { *(.text*) }
-  .enchmke : ALIGN(16) { *(.enchmke) }
+  .enchmke : ALIGN(16) {
+    ench_mke_blob_start = .;
+    KEEP(*(.enchmke))
+    ench_mke_blob_end = .;
+  }
   .rodata : { *(.rodata*) }
   .data : { *(.data*) }
   .bss : { *(COMMON) *(.bss*) }
