@@ -24,11 +24,16 @@
 
 #define PT_LOAD 1
 
+#define PF_X 1
+#define PF_W 2
+#define PF_R 4
+
 #define SHT_NOBITS  8
 #define SHT_SYMTAB  2
 #define SHT_RELA    4
 #define SHN_UNDEF   0
 #define SHF_ALLOC   0x2
+#define SHF_EXECINSTR 0x4
 #define SHF_WRITE   0x1
 
 #define R_X86_64_64    1

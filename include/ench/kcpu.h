@@ -22,10 +22,14 @@ void *cpu_make_frame(u64 kstack_top, u64 rip, u64 rsp, u8 user);
 // восстановить кадр и войти в задачу (pop r15..rax, add $16, iretq)
 void cpu_restore_frame(struct cpu_frame *fr) __attribute__((noreturn));
 
-// ---- task/task.c (сон через SYS_sleep) ----
+// ---- task/task.c (сон/ожидание через SYS_sleep/SYS_wait) ----
 void task_sleep_begin(u64 ms);
 int  task_sleep_pending(void);
 void task_sleep_end(void);
+i32  task_wait_check(i32 pid, i32 *code_out); /* 1=DEAD(код готов), 0=работает, <0=err */
+i32  task_current_pid(void);
+void task_set_block(void);
+void task_set_run(void);
 
 // ---- task/task.c (переключение из рамки) ----
 void *sched_timer(struct cpu_frame *fr);  // тик PIT: вернуть кадр новой задачи или 0
