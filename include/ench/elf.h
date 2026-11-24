@@ -1,28 +1,41 @@
 #pragma once
-/* include/ench/elf.h — минимальный ELF64 для загрузчиков EnchBin:
- * 1) ET_EXEC ring3-приложения (User/apps, база 0x400000) — в собственные
- *    таблицы страниц задачи;
- * 2) ET_REL (.mke-модуль drive.mke, .b_d-драйверы, ring0-приложения
- *    Platform/Apps и Platform/MyOS) — загрузка в kernel-арену с релокациями
- *    против symtab самого ядра + уже загруженных единиц. */
+/* include/ench/elf.h — минимальные структуры ELF64 для загрузчиков EnchBin.
+ * Объявления функций загрузки — в ench/kernel.h:
+ *   elf_load_ring3(img, size, &entry, &stack_top) — ET_EXEC ring3 (User/apps);
+ *   elf_rel_load(buf, len, sym, &err)             — ET_REL (.mke drive.mke,
+ *       .b_d-драйверы, ring0-приложения Platform/Apps и Platform/MyOS):
+ *       секции раскладываются в арену у конца ядра, RELA применяются против
+ *       таблицы экспорта ядра (ksyms) и уже загруженных единиц, возвращается
+ *       адрес sym ("ench_mke_init"/"ench_drv_init"/"main");
+ *   elf_rel_sym(name)                             — поиск символа по всем единицам;
+ *   elf_rel_unload_last()                         — выгрузка последней единицы (devctl).
+ * Конвенция экспорта: .mke -> ENCH_MKE_SYMBOL, .b_d -> "ench_drv_init",
+ * ring0-приложения -> "main". */
+#ifndef ENCH_ELF_H
+#define ENCH_ELF_H
 #include <stdint.h>
 #include <stddef.h>
 
 #define ELF_MAGIC 0x464C457Fu /* "\x7fELF" little endian u32 */
 
-#define ET_EXEC 2
 #define ET_REL  1
+#define ET_EXEC 2
 #define EM_X86_64 62
 
 #define PT_LOAD 1
 
-#define SHT_SYMTAB 2
-#define SHT_RELA   4
-#define SHN_UNDEF  0
+#define SHT_NOBITS  8
+#define SHT_SYMTAB  2
+#define SHT_RELA    4
+#define SHN_UNDEF   0
+#define SHF_ALLOC   0x2
+#define SHF_WRITE   0x1
 
 #define R_X86_64_64    1
 #define R_X86_64_PC32  2
 #define R_X86_64_PLT32 4
+#define R_X86_64_32    10
+#define R_X86_64_32S   11
 
 struct elf64_ehdr {
     uint8_t  e_ident[16];
@@ -55,18 +68,4 @@ struct elf64_rela {
     int64_t  r_addend;
 };
 
-/* загрузка ring3 ET_EXEC: раскладывает сегменты в pml4 задачи, возвращает entry */
-struct task;
-int  elf_exec_load(struct task *t, const char *path, uint64_t *entry_out);
-
-/* загрузка ET_REL: копирует секции в свежую память, применяет RELA
- * (R_X86_64_64/PC32/PLT32) против elf_rel_sym(); возвращает адрес символа "init"
- * (для .mke/.b_d) или "main" (для ring0-приложений), NULL при ошибке */
-void *elf_rel_load(const void *buf, size_t len, const char *name, int *err);
-
-/* поиск символа: symtab ядра (линкер сохраняет symtab), затем symtab'ы всех
- * загруженных ET_REL единиц — так ring0-приложения видят API ядра и друг друга */
-void *elf_rel_sym(const char *name);
-
-/* выгрузить последнюю единицу (для devctl) */
-int  elf_rel_unload_last(void);
+#endif
