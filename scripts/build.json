@@ -26,8 +26,10 @@
     { "name": "fsprobe", "src": "userspace/appscore/fsprobe/src/fsprobe.c", "out": "Platform/Apps/fsprobe" },
     { "name": "memmap",  "src": "userspace/appscore/memmap/src/memmap.c",  "out": "Platform/Apps/memmap" },
     { "name": "devctl",  "src": "userspace/appscore/devctl/src/devctl.c",  "out": "Platform/Apps/devctl" },
-    { "name": "gui",     "src": "userspace/appscore/myos/src/gui.c",       "inc": "userspace/appscore/myos/include", "out": "Platform/MyOS/gui" },
-    { "name": "gfx",     "src": "userspace/appscore/myos/src/gfx.c",       "inc": "userspace/appscore/myos/include", "out": "Platform/MyOS/gfx" }
+    { "name": "gui",     "src": ["userspace/appscore/myos/src/gfx.c", "userspace/appscore/myos/src/gui.c", "userspace/appscore/myos/src/desktop.c"], "inc": "userspace/appscore/myos/include", "out": "Platform/MyOS/gui" },
+    { "name": "taskman", "src": ["userspace/appscore/myos/src/gfx.c", "userspace/appscore/myos/src/gui.c", "userspace/appscore/myos/src/taskman.c"], "inc": "userspace/appscore/myos/include", "out": "Platform/MyOS/taskman" },
+    { "name": "fileman", "src": ["userspace/appscore/myos/src/gfx.c", "userspace/appscore/myos/src/gui.c", "userspace/appscore/myos/src/fileman.c"], "inc": "userspace/appscore/myos/include", "out": "Platform/MyOS/fileman" },
+    { "name": "accmgr",  "src": ["userspace/appscore/myos/src/gfx.c", "userspace/appscore/myos/src/gui.c", "userspace/appscore/myos/src/accmgr.c"],  "inc": "userspace/appscore/myos/include", "out": "Platform/MyOS/accmgr" }
   ],
   "apps_user": [
     { "name": "shell",  "src": ["userspace/appsuser/shell/src/shell.c", "userspace/appsuser/shell/src/parse.c"], "inc": "userspace/appsuser/shell/include", "out": "User/apps/shell" },

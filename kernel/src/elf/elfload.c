@@ -49,7 +49,8 @@ static void *arena_alloc(usize size, usize align) {
     X(task_kill) X(task_list) X(task_weight_for_size) X(task_reap) X(task_current_pid) \
     X(task_exit) X(task_exit_core) \
     X(power_reboot) X(power_halt) X(uptime_ms) X(rtc_read) X(syscall_init) X(scheduler_tick) \
-    X(cpu_set_kbd_hook)
+    X(cpu_set_kbd_hook) \
+    X(ench_boot_fb) X(ench_boot_hhdm) X(ench_boot_memmap) X(ench_boot_module)
 
 // все имена объявлены в kernel.h/kcpu.h — адреса берём напрямую
 static const struct { const char *name; void *addr; } ksyms[] = {
@@ -90,6 +91,18 @@ static void *resolve_global(const char *name, struct unit *self) {
         }
     }
     return ksym_find(name);
+}
+
+// ld -r НЕ связывает ссылки между входными объектами: UNDEF-символы
+// комбинированного .o резолвим сначала по собственному symtab юнита
+static void *find_own(struct unit *u, const char *name) {
+    for (u32 j = 0; j < u->nsyms; j++) {
+        const struct elf64_sym *s = &u->symtab[j];
+        if (s->st_shndx == SHN_UNDEF || s->st_shndx >= u->shnum || !s->st_name) continue;
+        if (ench_strcmp(u->strtab + s->st_name, name) == 0)
+            return (void *)(u->secmem[s->st_shndx] + s->st_value);
+    }
+    return 0;
 }
 
 void *elf_rel_sym(const char *name) {
@@ -178,7 +191,8 @@ void *elf_rel_load(const void *buf, usize len, const char *want, i32 *err) {
             const struct elf64_sym *s = &sym[r->r_sym];
             u64 S;
             if (s->st_shndx == SHN_UNDEF || s->st_shndx >= u->shnum) {
-                void *g = resolve_global(str + s->st_name, u);
+                void *g = find_own(u, str + s->st_name);
+                if (!g) g = resolve_global(str + s->st_name, u);
                 if (!g) { if (err) *err = ENCH_ENOENT; return 0; } // неразрешённый символ
                 S = (u64)g;
             } else {
