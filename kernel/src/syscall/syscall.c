@@ -128,7 +128,12 @@ void *sys_dispatch(struct cpu_frame *fr) {
         void *f = fr;
         for (;;) {
             i32 st = task_wait_check(pid, &code);
-            if (st > 0) { task_reap(pid < 0 ? st : pid); ret = code; break; }
+            if (st > 0) {
+                task_reap(pid < 0 ? st : pid);
+                if (uok((void *)a2, 4)) *(i32 *)a2 = code;  // ench_wait(pid, code_out)
+                ret = code;
+                break;
+            }
             if (st < 0) { ret = st; break; }
             task_set_block();
             void *nf = task_yield_switch(f);
@@ -227,6 +232,11 @@ void *sys_dispatch(struct cpu_frame *fr) {
         break;
     }
     case SYS_asmrun: {
+        if (!a1) {                              // ench_asmlist: rdi=0, rsi=buf, rdx=cap
+            if (!uok((void *)a2, (usize)a3)) { ret = ENCH_EINVAL; break; }
+            ret = asm_list((char *)a2, (usize)a3);
+            break;
+        }
         char name[80];
         ustr_copy(name, sizeof name, (const char *)a1);
         if (name[0] != '/') {
