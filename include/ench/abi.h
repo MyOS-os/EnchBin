@@ -58,6 +58,11 @@ struct ench_drv {
 #define ENCH_DRVCTL_LOAD 2 /* загрузить .b_d по пути (rdi=path) */
 #define ENCH_DRVCTL_CALL 3 /* вызвать ioctl драйвера (rsi=name, rdx=cmd, r10=arg) */
 
+// ---- встроенный сервис "kernel" (drvctl CALL kernel <cmd> <arg>) ----
+#define ENCH_KCMD_REBOOT 1
+#define ENCH_KCMD_HALT   2
+#define ENCH_KCMD_UPTIME 3 /* arg = указатель на u64 (миллисекунды) */
+
 // ---- Модуль ядра drive.mke (встраивается в секцию .enchmke) ----
 // reloc ELF, обязан экспортировать символ void ench_mke_init(void).
 #define ENCH_MKE_SYMBOL "ench_mke_init"
