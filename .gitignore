@@ -1,0 +1,13 @@
+bin/
+build/
+obj/
+*.o
+*.a
+*.elf
+*.iso
+*.b_d
+*.mke
+*.tar
+*.img
+third_party/limine/bin/
+third_party/limine/*.tar.gz

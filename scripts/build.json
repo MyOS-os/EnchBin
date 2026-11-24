@@ -1,0 +1,53 @@
+{
+  "project": "EnchBin",
+  "version": "0.1.0",
+  "codename": "First Light",
+  "arch": "x86_64",
+  "kernel": {
+    "src": "kernel/src",
+    "extra": ["stdlib/c/src/osstrace.c"],
+    "linker": "scripts/link/kernel.ld",
+    "extra_inc": ["third_party/limine"],
+    "out": "build/kernel.elf"
+  },
+  "module": {
+    "name": "drive",
+    "src": "kernel/modules/drive/src/drive_mod.c",
+    "out": "build/drive.mke"
+  },
+  "drivers": [
+    { "name": "keyboard", "src": "drivers/keyboard/src/keyboard.c", "inc": "drivers/keyboard/include", "out": "Platform/ench.bin/system/drivers/keyboard.b_d" },
+    { "name": "ansi",     "src": "drivers/ansi/src/ansi.c",         "inc": "drivers/ansi/include",     "out": "Platform/ench.bin/system/drivers/ansi.b_d" },
+    { "name": "msdos",    "src": "userspace/driversuser/msdos/src/msdos.c", "inc": "userspace/driversuser/msdos/include", "out": "Platform/ench.bin/system/drivers/userd/msdos.b_d" },
+    { "name": "unix_lin", "src": "drivers/unix_lin/src/unix_lin.c", "inc": "drivers/unix_lin/include", "out": "Platform/ench.bin/system/drive/Unix_lin.b_d" }
+  ],
+  "apps_score": [
+    { "name": "sysinfo", "src": "userspace/appscore/sysinfo/src/sysinfo.c", "out": "Platform/Apps/sysinfo" },
+    { "name": "fsprobe", "src": "userspace/appscore/fsprobe/src/fsprobe.c", "out": "Platform/Apps/fsprobe" },
+    { "name": "memmap",  "src": "userspace/appscore/memmap/src/memmap.c",  "out": "Platform/Apps/memmap" },
+    { "name": "devctl",  "src": "userspace/appscore/devctl/src/devctl.c",  "out": "Platform/Apps/devctl" },
+    { "name": "gui",     "src": "userspace/appscore/myos/src/gui.c",       "inc": "userspace/appscore/myos/include", "out": "Platform/MyOS/gui" },
+    { "name": "gfx",     "src": "userspace/appscore/myos/src/gfx.c",       "inc": "userspace/appscore/myos/include", "out": "Platform/MyOS/gfx" }
+  ],
+  "apps_user": [
+    { "name": "shell",  "src": ["userspace/appsuser/shell/src/shell.c", "userspace/appsuser/shell/src/parse.c"], "inc": "userspace/appsuser/shell/include", "out": "User/apps/shell" },
+    { "name": "edit",   "src": ["userspace/appsuser/edit/src/edit.c"],   "out": "User/apps/edit" },
+    { "name": "calc",   "src": ["userspace/appsuser/calc/src/calc.c"],   "out": "User/apps/calc" },
+    { "name": "clock",  "src": ["userspace/appsuser/clock/src/clock.c"], "out": "User/apps/clock" },
+    { "name": "runasm", "src": ["userspace/appsuser/runasm/src/runasm.c"], "out": "User/apps/runasm" }
+  ],
+  "stdlib": {
+    "c":    { "src": "stdlib/c/src", "ar": "build/libench.a" },
+    "rust": { "dir": "stdlib/rust", "crate": "ench" },
+    "d":    { "dir": "stdlib/d" },
+    "asm":  { "src": "stdlib/asm/src" }
+  },
+  "disk": {
+    "root": "disk",
+    "stage": "build/disk",
+    "limine_conf": "scripts/limine.conf.in",
+    "kernel_in_iso": "boot/kernel.elf",
+    "iso": "build/enchbin.iso"
+  },
+  "run": { "qemu": "qemu-system-x86_64", "mem": "512M" }
+}
